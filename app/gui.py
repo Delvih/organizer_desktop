@@ -246,7 +246,8 @@ class FileOrganizerApp:
         # Poll log buffer every second
         self._poll_logs()
 
-        # Start periodic scan
+        # Start the periodic scan thread immediately so first launch
+        # works even before any folders are configured.
         self._start_periodic_scan()
 
     def _t(self, key):
@@ -254,12 +255,10 @@ class FileOrganizerApp:
         return self.translations.get(self.current_lang, {}).get(key, key)
 
     def _start_periodic_scan(self):
-        if not self.config.watched_folders:
-            messagebox.showwarning(self._t("warning"), self._t("no_folder_selected"))
-            return
         if self.scan_thread and self.scan_thread.is_alive():
             return
         self.scan_running = True
+        self.next_scan_time = time.time() + self.scan_interval
         self.scan_thread = threading.Thread(target=self._periodic_scan_loop, daemon=True)
         self.scan_thread.start()
 

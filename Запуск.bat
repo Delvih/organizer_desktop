@@ -1,2 +1,3 @@
 @echo off
-python main.py
+cd /d "%~dp0"
+call "%~dp0START_APP.bat"
