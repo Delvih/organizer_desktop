@@ -18,6 +18,7 @@ from .config import Config, DEFAULT_RULES
 from .organizer import FileOrganizer, OrganizerResult
 from .watcher import FolderWatcher
 from .logger_setup import setup_logging, get_log_buffer, get_log_file_path
+from .runtime import resource_path
 
 logger = logging.getLogger("FileOrganizer")
 
@@ -185,7 +186,7 @@ class FileOrganizerApp:
         self.root.withdraw()
 
         # Load translations
-        locales_path = Path(__file__).parent.parent / "locales.json"
+        locales_path = resource_path("locales.json")
         with open(locales_path, 'r', encoding='utf-8') as f:
             self.translations = json.load(f)
         self.current_lang = self.config.get("language", "en")
@@ -210,12 +211,12 @@ class FileOrganizerApp:
 
         # Try to set window icon
         try:
-            icon_path = Path(__file__).parent.parent / "assets" / "icon.ico"
+            icon_path = resource_path("assets", "icon.ico")
             if icon_path.exists():
                 self.root.iconbitmap(str(icon_path))
             else:
                 # Fallback to PNG if ICO not found
-                png_path = Path(__file__).parent.parent / "assets" / "icon.png"
+                png_path = resource_path("assets", "icon.png")
                 if png_path.exists():
                     img = tk.PhotoImage(file=str(png_path))
                     self.root.iconphoto(True, img)
