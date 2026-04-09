@@ -59,7 +59,6 @@ Build output is written to `dist/`.
 fileorganizer/
 |-- app/
 |-- assets/
-|-- installer/
 |-- tests/
 |-- build.py
 |-- create_icon.py

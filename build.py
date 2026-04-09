@@ -8,13 +8,13 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
 BUILD = ROOT / "build"
-INSTALLER_DIR = ROOT / "installer"
-STAGING_DIR = BUILD / "installer_staging"
+INSTALLER_DIR = BUILD / "installer"
 APP_NAME = "FileOrganizer"
 
 
@@ -85,23 +85,30 @@ def run_pyinstaller(onefile: bool = False):
 def write_installer_scripts():
     INSTALLER_DIR.mkdir(exist_ok=True)
 
+    (INSTALLER_DIR / "setup.ps1").write_text(
+        "$appDir = Join-Path $env:LOCALAPPDATA 'Programs\\FileOrganizer'\n"
+        "New-Item -ItemType Directory -Force -Path $appDir | Out-Null\n"
+        "Copy-Item -Force 'FileOrganizer.exe' (Join-Path $appDir 'FileOrganizer.exe')\n"
+        "Copy-Item -Force 'README.txt' (Join-Path $appDir 'README.txt')\n"
+        "$shell = New-Object -ComObject WScript.Shell\n"
+        "$desktopShortcut = $shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'FileOrganizer.lnk'))\n"
+        "$desktopShortcut.TargetPath = Join-Path $appDir 'FileOrganizer.exe'\n"
+        "$desktopShortcut.WorkingDirectory = $appDir\n"
+        "$desktopShortcut.Save()\n"
+        "$menuShortcut = $shell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('StartMenu')) 'Programs\\FileOrganizer.lnk'))\n"
+        "$menuShortcut.TargetPath = Join-Path $appDir 'FileOrganizer.exe'\n"
+        "$menuShortcut.WorkingDirectory = $appDir\n"
+        "$menuShortcut.Save()\n"
+        "Start-Process -FilePath (Join-Path $appDir 'FileOrganizer.exe')\n",
+        encoding="utf-8",
+    )
+
     (INSTALLER_DIR / "setup.cmd").write_text(
         "@echo off\n"
         "setlocal\n"
-        "set \"APP_DIR=%LOCALAPPDATA%\\Programs\\FileOrganizer\"\n"
-        "mkdir \"%APP_DIR%\" 2>nul\n"
-        "copy /Y \"FileOrganizer.exe\" \"%APP_DIR%\\FileOrganizer.exe\" >nul\n"
-        "copy /Y \"README.txt\" \"%APP_DIR%\\README.txt\" >nul\n"
-        "powershell -NoProfile -ExecutionPolicy Bypass -Command "
-        "\"$s=New-Object -ComObject WScript.Shell;"
-        "$desktop=$s.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\\FileOrganizer.lnk');"
-        "$desktop.TargetPath=$env:LOCALAPPDATA + '\\Programs\\FileOrganizer\\FileOrganizer.exe';"
-        "$desktop.WorkingDirectory=$env:LOCALAPPDATA + '\\Programs\\FileOrganizer';$desktop.Save();"
-        "$menu=$s.CreateShortcut([Environment]::GetFolderPath('StartMenu') + '\\Programs\\FileOrganizer.lnk');"
-        "$menu.TargetPath=$env:LOCALAPPDATA + '\\Programs\\FileOrganizer\\FileOrganizer.exe';"
-        "$menu.WorkingDirectory=$env:LOCALAPPDATA + '\\Programs\\FileOrganizer';$menu.Save()\"\n"
-        "start \"\" \"%APP_DIR%\\FileOrganizer.exe\"\n"
-        "exit /b 0\n",
+        "cd /d \"%~dp0\"\n"
+        "powershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0setup.ps1\"\n"
+        "exit /b %errorlevel%\n",
         encoding="utf-8",
     )
 
@@ -115,7 +122,7 @@ def write_installer_scripts():
 
 def write_iexpress_sed(target_name: Path) -> Path:
     sed_path = INSTALLER_DIR / "FileOrganizerInstaller.sed"
-    source_dir = STAGING_DIR.resolve()
+    source_dir = Path(tempfile.gettempdir())
     target_name = target_name.resolve()
 
     sed_path.write_text(
@@ -145,12 +152,14 @@ def write_iexpress_sed(target_name: Path) -> Path:
         "FILE0=setup.cmd\n"
         "FILE1=FileOrganizer.exe\n"
         "FILE2=README.txt\n"
+        "FILE3=setup.ps1\n"
         "[SourceFiles]\n"
         f"SourceFiles0={source_dir}\n"
         "[SourceFiles0]\n"
         "%FILE0%=\n"
         "%FILE1%=\n"
-        "%FILE2%=\n",
+        "%FILE2%=\n"
+        "%FILE3%=\n",
         encoding="utf-8",
     )
     return sed_path
@@ -163,16 +172,18 @@ def build_installer():
 
     write_installer_scripts()
 
-    if STAGING_DIR.exists():
-        shutil.rmtree(STAGING_DIR)
-    STAGING_DIR.mkdir(parents=True)
+    staging_dir = Path(tempfile.mkdtemp(prefix="fileorganizer-installer-", dir=BUILD))
 
-    shutil.copy2(exe_path, STAGING_DIR / exe_path.name)
-    shutil.copy2(INSTALLER_DIR / "setup.cmd", STAGING_DIR / "setup.cmd")
-    shutil.copy2(INSTALLER_DIR / "README.txt", STAGING_DIR / "README.txt")
+    shutil.copy2(exe_path, staging_dir / exe_path.name)
+    shutil.copy2(INSTALLER_DIR / "setup.cmd", staging_dir / "setup.cmd")
+    shutil.copy2(INSTALLER_DIR / "README.txt", staging_dir / "README.txt")
+    shutil.copy2(INSTALLER_DIR / "setup.ps1", staging_dir / "setup.ps1")
 
     target_name = DIST / f"{APP_NAME}-Setup.exe"
     sed_path = write_iexpress_sed(target_name)
+    sed_text = sed_path.read_text(encoding="utf-8")
+    sed_text = sed_text.replace(str(Path(tempfile.gettempdir()).resolve()), str(staging_dir.resolve()))
+    sed_path.write_text(sed_text, encoding="utf-8")
 
     iexpress = Path(os.environ["SystemRoot"]) / "System32" / "iexpress.exe"
     print(f"Building Windows installer: {target_name.name}")
