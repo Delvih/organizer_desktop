@@ -1,75 +1,89 @@
 """
-config.py - Configuration management for FileOrganizer.
-Handles loading, saving, and managing organization rules.
+Configuration management for FileOrganizer.
 """
 
+import copy
 import json
 import os
+import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-import copy
+from typing import Any, Dict, List
 
 
 DEFAULT_RULES: Dict[str, Dict[str, Any]] = {
     "Documents": {
-        "extensions": [".pdf", ".doc", ".docx", ".txt", ".odt", ".rtf", ".tex",
-                        ".md", ".csv", ".xls", ".xlsx", ".ppt", ".pptx", ".pages",
-                        ".numbers", ".key", ".epub", ".mobi"],
+        "extensions": [
+            ".pdf", ".doc", ".docx", ".txt", ".odt", ".rtf", ".tex",
+            ".md", ".csv", ".xls", ".xlsx", ".ppt", ".pptx", ".pages",
+            ".numbers", ".key", ".epub", ".mobi",
+        ],
         "color": "#4A90D9",
-        "icon": "📄",
+        "icon": "D",
         "enabled": True,
     },
     "Images": {
-        "extensions": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp",
-                        ".tiff", ".tif", ".ico", ".heic", ".heif", ".raw", ".cr2",
-                        ".nef", ".arw", ".dng", ".psd", ".ai", ".eps"],
+        "extensions": [
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp",
+            ".tiff", ".tif", ".ico", ".heic", ".heif", ".raw", ".cr2",
+            ".nef", ".arw", ".dng", ".psd", ".ai", ".eps",
+        ],
         "color": "#E8A838",
-        "icon": "🖼️",
+        "icon": "I",
         "enabled": True,
     },
     "Videos": {
-        "extensions": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",
-                        ".m4v", ".mpeg", ".mpg", ".3gp", ".ogv", ".ts", ".vob",
-                        ".divx", ".xvid", ".rmvb"],
+        "extensions": [
+            ".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm",
+            ".m4v", ".mpeg", ".mpg", ".3gp", ".ogv", ".ts", ".vob",
+            ".divx", ".xvid", ".rmvb",
+        ],
         "color": "#E05C5C",
-        "icon": "🎬",
+        "icon": "V",
         "enabled": True,
     },
     "Music": {
-        "extensions": [".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a",
-                        ".aiff", ".alac", ".opus", ".mid", ".midi", ".amr"],
+        "extensions": [
+            ".mp3", ".flac", ".wav", ".aac", ".ogg", ".wma", ".m4a",
+            ".aiff", ".alac", ".opus", ".mid", ".midi", ".amr",
+        ],
         "color": "#9B59B6",
-        "icon": "🎵",
+        "icon": "M",
         "enabled": True,
     },
     "Archives": {
-        "extensions": [".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
-                        ".tar.gz", ".tar.bz2", ".tar.xz", ".iso", ".dmg", ".pkg",
-                        ".deb", ".rpm", ".cab"],
+        "extensions": [
+            ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
+            ".tar.gz", ".tar.bz2", ".tar.xz", ".iso", ".dmg", ".pkg",
+            ".deb", ".rpm", ".cab",
+        ],
         "color": "#1ABC9C",
-        "icon": "📦",
+        "icon": "A",
         "enabled": True,
     },
     "Executables": {
-        "extensions": [".exe", ".msi", ".app", ".apk", ".bat", ".sh", ".cmd",
-                        ".com", ".bin", ".run", ".jar", ".appimage"],
+        "extensions": [
+            ".exe", ".msi", ".app", ".apk", ".bat", ".sh", ".cmd",
+            ".com", ".bin", ".run", ".jar", ".appimage",
+        ],
         "color": "#E67E22",
-        "icon": "⚙️",
+        "icon": "E",
         "enabled": True,
     },
     "Code": {
-        "extensions": [".py", ".js", ".ts", ".html", ".css", ".java", ".cpp",
-                        ".c", ".h", ".cs", ".go", ".rs", ".rb", ".php", ".swift",
-                        ".kt", ".r", ".sql", ".json", ".xml", ".yaml", ".yml",
-                        ".toml", ".ini", ".cfg", ".conf"],
+        "extensions": [
+            ".py", ".js", ".ts", ".html", ".css", ".java", ".cpp",
+            ".c", ".h", ".cs", ".go", ".rs", ".rb", ".php", ".swift",
+            ".kt", ".r", ".sql", ".json", ".xml", ".yaml", ".yml",
+            ".toml", ".ini", ".cfg", ".conf",
+        ],
         "color": "#2ECC71",
-        "icon": "💻",
+        "icon": "C",
         "enabled": True,
     },
     "Fonts": {
         "extensions": [".ttf", ".otf", ".woff", ".woff2", ".eot", ".fon"],
         "color": "#95A5A6",
-        "icon": "🔤",
+        "icon": "F",
         "enabled": True,
     },
 }
@@ -78,7 +92,7 @@ DEFAULT_CONFIG = {
     "watched_folders": [],
     "destination_folder": "",
     "rules": DEFAULT_RULES,
-    "conflict_strategy": "rename",   # rename | skip | overwrite
+    "conflict_strategy": "rename",
     "run_on_startup": False,
     "minimize_to_tray": True,
     "log_level": "INFO",
@@ -91,7 +105,7 @@ DEFAULT_CONFIG = {
 
 
 def get_config_path() -> Path:
-    """Return platform-appropriate config file path."""
+    """Return the platform-specific config file path."""
     if os.name == "nt":
         base = Path(os.environ.get("APPDATA", Path.home()))
     elif sys.platform == "darwin":
@@ -105,7 +119,7 @@ def get_config_path() -> Path:
 
 
 def get_log_path() -> Path:
-    """Return platform-appropriate log file path."""
+    """Return the platform-specific log file path."""
     if os.name == "nt":
         base = Path(os.environ.get("APPDATA", Path.home()))
     elif sys.platform == "darwin":
@@ -118,9 +132,6 @@ def get_log_path() -> Path:
     return log_dir / "fileorganizer.log"
 
 
-import sys
-
-
 class Config:
     def __init__(self):
         self._path = get_config_path()
@@ -128,12 +139,11 @@ class Config:
         self.load()
 
     def load(self):
-        """Load config from disk, merging with defaults."""
+        """Load config from disk, merging saved values with defaults."""
         if self._path.exists():
             try:
                 with open(self._path, "r", encoding="utf-8") as f:
                     saved = json.load(f)
-                # Deep merge: start from defaults, overlay saved
                 self._data = copy.deepcopy(DEFAULT_CONFIG)
                 self._deep_merge(self._data, saved)
             except (json.JSONDecodeError, OSError):
@@ -162,7 +172,7 @@ class Config:
         self.save()
 
     def get_extension_map(self) -> Dict[str, str]:
-        """Build a flat {'.ext': 'CategoryName'} map from rules."""
+        """Build a flat extension-to-category lookup map."""
         ext_map: Dict[str, str] = {}
         for category, rule in self._data.get("rules", {}).items():
             if not rule.get("enabled", True):
@@ -211,8 +221,8 @@ class Config:
         return self._data.get("unknown_enabled", True)
 
     def _deep_merge(self, base: Dict[str, Any], override: Dict[str, Any]):
-        for k, v in override.items():
-            if k in base and isinstance(base[k], dict) and isinstance(v, dict):
-                self._deep_merge(base[k], v)
+        for key, value in override.items():
+            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                self._deep_merge(base[key], value)
             else:
-                base[k] = v
+                base[key] = value

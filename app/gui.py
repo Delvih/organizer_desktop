@@ -22,7 +22,7 @@ from .runtime import resource_path
 
 logger = logging.getLogger("FileOrganizer")
 
-# в”Ђв”Ђ Palette в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+# Palette
 BG       = "#2b2b2b"
 SURFACE  = "#404040"
 SURFACE2 = "#505050"
@@ -36,7 +36,7 @@ TEXT     = "#E8EAF0"
 TEXT_DIM = "#B0B0B0"
 WHITE    = "#FFFFFF"
 
-# в”Ђв”Ђ Fonts (resolved at runtime) в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+# Fonts (resolved at runtime)
 def _pick(candidates, fallback):
     available = set(tkfont.families())
     for c in candidates:
@@ -119,7 +119,7 @@ class ScrollableFrame(tk.Frame):
             self.canvas.yview_scroll(-1 * (e.delta // 120), "units")
 
 
-# в”Ђв”Ђ Sidebar navigation item в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+# Sidebar navigation item
 class NavItem(tk.Frame):
     def __init__(self, parent, icon, label, command, **kw):
         super().__init__(parent, bg=SURFACE, cursor="hand2", **kw)
@@ -191,9 +191,7 @@ class NavItem(tk.Frame):
             self._icon.config(bg=SURFACE)
 
 
-# в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
-# MAIN APPLICATION
-# в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
+# Main application
 class FileOrganizerApp:
     def __init__(self):
         global FONT_FAMILY, MONO_FAMILY
@@ -314,7 +312,7 @@ class FileOrganizerApp:
         except ValueError:
             pass
 
-    # в”Ђв”Ђ Build skeleton в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Build skeleton
     def _build_ui(self):
         # Sidebar
         self.sidebar = tk.Frame(self.root, bg=SURFACE, width=200)
@@ -324,7 +322,7 @@ class FileOrganizerApp:
         # Logo area
         logo_frame = tk.Frame(self.sidebar, bg=SURFACE, pady=20)
         logo_frame.pack(fill="x")
-        tk.Label(logo_frame, text="вљЎ", bg=SURFACE, fg=ACCENT,
+        tk.Label(logo_frame, text="⚡", bg=SURFACE, fg=ACCENT,
                  font=(FONT_FAMILY, 22)).pack()
         tk.Label(logo_frame, text="FileOrganizer", bg=SURFACE, fg=WHITE,
                  font=(FONT_FAMILY, 13, "bold")).pack()
@@ -335,11 +333,11 @@ class FileOrganizerApp:
 
         # Nav items
         nav_config = [
-            ("dashboard",  "рџ“Љ", self._t("dashboard")),
-            ("folders",    "рџ“Ѓ", self._t("folders")),
-            ("rules",      "рџ—‚пёЏ", self._t("rules")),
-            ("log",        "рџ“‹", self._t("log")),
-            ("settings",   "вљ™пёЏ", self._t("settings")),
+            ("dashboard",  "📊", self._t("dashboard")),
+            ("folders",    "📁", self._t("folders")),
+            ("rules",      "🗂️", self._t("rules")),
+            ("log",        "📋", self._t("log")),
+            ("settings",   "⚙️", self._t("settings")),
         ]
         for page, icon, label in nav_config:
             item = NavItem(self.sidebar, icon, label,
@@ -351,7 +349,7 @@ class FileOrganizerApp:
         Separator(self.sidebar).pack(fill="x", padx=16, pady=8, side="bottom")
         self._status_frame = tk.Frame(self.sidebar, bg=SURFACE, pady=12)
         self._status_frame.pack(side="bottom", fill="x")
-        self._status_dot = tk.Label(self._status_frame, text="в—Џ", bg=SURFACE,
+        self._status_dot = tk.Label(self._status_frame, text="●", bg=SURFACE,
                                      fg=DANGER, font=(FONT_FAMILY, 12))
         self._status_dot.pack()
         self._status_lbl = tk.Label(self._status_frame, text="Not Watching",
@@ -383,7 +381,7 @@ class FileOrganizerApp:
         elif page == "log":
             self._refresh_log()
 
-    # в”Ђв”Ђ Page: Dashboard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Page: Dashboard
     def _build_dashboard(self) -> tk.Frame:
         page = tk.Frame(self.content, bg=BG)
 
@@ -409,10 +407,10 @@ class FileOrganizerApp:
 
         self._stat_vars = {}
         stat_defs = [
-            ("total",   "Files Processed", "рџ“‚", ACCENT),
-            ("moved",   "Moved",           "вњ…", SUCCESS),
-            ("skipped", "Skipped",         "вЏ­пёЏ",  WARNING),
-            ("errors",  "Errors",          "вќЊ", DANGER),
+            ("total",   "Files Processed", "📂", ACCENT),
+            ("moved",   "Moved",           "✅", SUCCESS),
+            ("skipped", "Skipped",         "⏭️", WARNING),
+            ("errors",  "Errors",          "❌", DANGER),
         ]
         for key, label, icon, color in stat_defs:
             var = tk.StringVar(value="0")
@@ -477,8 +475,8 @@ class FileOrganizerApp:
         ts = result.timestamp.strftime("%H:%M:%S")
         name = Path(result.src).name
         tag = result.action if result.action in ("moved", "skipped", "error", "renamed") else "dim"
-        icon = {"moved": "вњ…", "skipped": "вЏ­пёЏ", "error": "вќЊ", "renamed": "рџ”„"}.get(result.action, "вЂў")
-        line = f"[{ts}] {icon} {name}  в†’  {Path(result.dst).parent.name if result.dst else '?'}\n"
+        icon = {"moved": "✅", "skipped": "⏭️", "error": "❌", "renamed": "🔄"}.get(result.action, "•")
+        line = f"[{ts}] {icon} {name}  ->  {Path(result.dst).parent.name if result.dst else '?'}\n"
         self._activity_text.insert("1.0", line, tag)
         # Keep last 100 lines
         lines = int(self._activity_text.index("end-1c").split(".")[0])
@@ -486,7 +484,7 @@ class FileOrganizerApp:
             self._activity_text.delete(f"{101}.0", "end")
         self._activity_text.config(state="disabled")
 
-    # в”Ђв”Ђ Page: Folders в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Page: Folders
     def _build_folders(self) -> tk.Frame:
         page = tk.Frame(self.content, bg=BG)
 
@@ -548,11 +546,11 @@ class FileOrganizerApp:
 
             exists = Path(folder).is_dir()
             dot_color = SUCCESS if exists else DANGER
-            tk.Label(row, text="в—Џ", bg=SURFACE, fg=dot_color,
+            tk.Label(row, text="●", bg=SURFACE, fg=dot_color,
                      font=(FONT_FAMILY, 11)).pack(side="left", padx=(0, 10))
             tk.Label(row, text=folder, bg=SURFACE, fg=TEXT,
                      font=(FONT_FAMILY, 11)).pack(side="left", fill="x", expand=True)
-            StyledButton(row, "вњ•", command=lambda f=folder: self._remove_folder(f),
+            StyledButton(row, "✕", command=lambda f=folder: self._remove_folder(f),
                          style="ghost", padx=8, pady=4).pack(side="right")
 
     def _add_watch_folder(self):
@@ -585,7 +583,7 @@ class FileOrganizerApp:
         self.config.destination_folder = self._dest_var.get().strip()
         messagebox.showinfo("Saved", "Destination folder saved.")
 
-    # в”Ђв”Ђ Page: Rules в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Page: Rules
     def _build_rules(self) -> tk.Frame:
         page = tk.Frame(self.content, bg=BG)
 
@@ -595,7 +593,7 @@ class FileOrganizerApp:
                  font=(FONT_FAMILY, 22, "bold")).pack(side="left")
         StyledButton(hdr, "+ New Category", command=self._add_category,
                      style="primary").pack(side="right")
-        StyledButton(hdr, "в†є Reset Defaults", command=self._reset_rules,
+        StyledButton(hdr, "↺ Reset Defaults", command=self._reset_rules,
                      style="ghost").pack(side="right", padx=8)
 
         Separator(page).pack(fill="x", padx=28)
@@ -633,7 +631,7 @@ class FileOrganizerApp:
 
     def _render_rule_card(self, cat_name: str, rule: dict):
         color = rule.get("color", ACCENT)
-        icon  = rule.get("icon", "рџ“Ѓ")
+        icon  = rule.get("icon", "📁")
         enabled = rule.get("enabled", True)
         exts  = rule.get("extensions", [])
 
@@ -673,12 +671,12 @@ class FileOrganizerApp:
         chk.pack(side="right", padx=(10, 0))
 
         # Delete button
-        StyledButton(action_col, "вњ• Remove", style="ghost", padx=8, pady=3,
+        StyledButton(action_col, "✕ Remove", style="ghost", padx=8, pady=3,
                      command=lambda c=cat_name: self._delete_category(c),
                      font=(FONT_FAMILY, 9)).pack(side="right")
 
         # Edit button
-        StyledButton(action_col, "вњЋ Edit", style="secondary", padx=8, pady=3,
+        StyledButton(action_col, "✎ Edit", style="secondary", padx=8, pady=3,
                      command=lambda c=cat_name, r=rule: self._edit_category(c, r),
                      font=(FONT_FAMILY, 9)).pack(side="right", padx=(0, 6))
 
@@ -763,7 +761,7 @@ class FileOrganizerApp:
         name_var = entry_var(cat_name or "")
 
         lbl("Icon (emoji)")
-        icon_var = entry_var(rule.get("icon", "рџ“Ѓ") if rule else "рџ“Ѓ")
+        icon_var = entry_var(rule.get("icon", "📁") if rule else "📁")
 
         lbl("Extensions (comma-separated, e.g. .pdf, .docx)")
         exts_var = entry_var(", ".join(rule.get("extensions", [])) if rule else "")
@@ -785,7 +783,7 @@ class FileOrganizerApp:
                 rules.pop(cat_name, None)
             rules[name] = {
                 "extensions": exts,
-                "icon": icon_var.get().strip() or "рџ“Ѓ",
+                "icon": icon_var.get().strip() or "📁",
                 "color": color_var.get().strip() or ACCENT,
                 "enabled": rules.get(name, {}).get("enabled", True),
             }
@@ -798,7 +796,7 @@ class FileOrganizerApp:
         StyledButton(btn_row, "Save", command=save, style="primary").pack(side="right")
         StyledButton(btn_row, "Cancel", command=dialog.destroy, style="ghost").pack(side="right", padx=8)
 
-    # в”Ђв”Ђ Page: Log в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Page: Log
     def _build_log(self) -> tk.Frame:
         page = tk.Frame(self.content, bg=BG)
 
@@ -806,8 +804,8 @@ class FileOrganizerApp:
         hdr.pack(fill="x")
         tk.Label(hdr, text="Activity Log", bg=BG, fg=WHITE,
                  font=(FONT_FAMILY, 22, "bold")).pack(side="left")
-        StyledButton(hdr, "рџ—‘ Clear", command=self._clear_log, style="ghost").pack(side="right")
-        StyledButton(hdr, "рџ“‚ Open Log File", command=self._open_log_file,
+        StyledButton(hdr, "🗑 Clear", command=self._clear_log, style="ghost").pack(side="right")
+        StyledButton(hdr, "📂 Open Log File", command=self._open_log_file,
                      style="secondary").pack(side="right", padx=8)
 
         Separator(page).pack(fill="x", padx=28)
@@ -866,7 +864,7 @@ class FileOrganizerApp:
             self._refresh_log()
         self.root.after(2000, self._poll_logs)
 
-    # в”Ђв”Ђ Page: Settings в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Page: Settings
     def _build_settings(self) -> tk.Frame:
         page = tk.Frame(self.content, bg=BG)
 
@@ -971,7 +969,7 @@ class FileOrganizerApp:
             ).pack(side="left", padx=8)
 
         section("About")
-        tk.Label(form, text="FileOrganizer v1.0  вЂў  MIT License  вЂў  github.com/fileorganizer",
+        tk.Label(form, text="FileOrganizer v1.0  •  MIT License  •  github.com/fileorganizer",
                  bg=BG, fg=TEXT_DIM, font=(FONT_FAMILY, 10)).pack(anchor="w", pady=8)
 
         return page
@@ -979,7 +977,7 @@ class FileOrganizerApp:
     def _save_unknown_folder(self):
         self.config.set("unknown_folder", self._unknown_var.get().strip() or "Misc")
 
-    # в”Ђв”Ђ Watcher controls в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Watcher controls
     def _toggle_watcher(self, force_start: bool = False):
         if self.watcher.running and not force_start:
             self.watcher.stop()
@@ -1012,12 +1010,12 @@ class FileOrganizerApp:
 
     def _update_watcher_ui(self, running: bool):
         if running:
-            self._watch_btn.config(text="вЏ№  Stop Watching", bg=DANGER)
+            self._watch_btn.config(text="⏹ Stop Watching", bg=DANGER)
             self._status_dot.config(fg=SUCCESS)
             self._status_lbl.config(text="Watching")
-            self._status_bar_lbl.config(text=f"Watcher: Running  вЂў  {len(self.config.watched_folders)} folder(s)")
+            self._status_bar_lbl.config(text=f"Watcher: Running  •  {len(self.config.watched_folders)} folder(s)")
         else:
-            self._watch_btn.config(text="в–¶  Start Watching", bg=SUCCESS)
+            self._watch_btn.config(text="▶ Start Watching", bg=SUCCESS)
             self._status_dot.config(fg=DANGER)
             self._status_lbl.config(text="Not Watching")
             self._status_bar_lbl.config(text="Watcher: Stopped")
@@ -1033,7 +1031,7 @@ class FileOrganizerApp:
         ).start()
 
     def _on_file_organized(self, result: OrganizerResult):
-        """Called from watcher thread вЂ” schedule GUI update on main thread."""
+        """Called from the watcher thread; schedule the GUI update on the main thread."""
         self.root.after(0, self._handle_result, result)
 
     def _handle_result(self, result: OrganizerResult):
@@ -1050,7 +1048,7 @@ class FileOrganizerApp:
 
         self._add_activity(result)
 
-    # в”Ђв”Ђ System tray в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # System tray
     def _setup_tray(self):
         try:
             import pystray
@@ -1061,7 +1059,7 @@ class FileOrganizerApp:
         # Create a simple icon
         img = Image.new("RGB", (64, 64), color=(91, 138, 245))
         d = ImageDraw.Draw(img)
-        d.text((16, 18), "вљЎ", fill=(255, 255, 255))
+        d.text((16, 18), "⚡", fill=(255, 255, 255))
 
         def show_window(icon, item):
             icon.stop()
@@ -1094,8 +1092,7 @@ class FileOrganizerApp:
         self.watcher.stop()
         self.root.destroy()
 
-    # в”Ђв”Ђ Run в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+    # Run
     def run(self):
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.mainloop()
-
