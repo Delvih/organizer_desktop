@@ -1,0 +1,14 @@
+README.md
+setup.py
+app/__init__.py
+app/config.py
+app/gui.py
+app/logger_setup.py
+app/organizer.py
+app/watcher.py
+fileorganizer.egg-info/PKG-INFO
+fileorganizer.egg-info/SOURCES.txt
+fileorganizer.egg-info/dependency_links.txt
+fileorganizer.egg-info/entry_points.txt
+fileorganizer.egg-info/requires.txt
+fileorganizer.egg-info/top_level.txt
