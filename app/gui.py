@@ -12,6 +12,7 @@ from tkinter import ttk, filedialog, messagebox, font as tkfont
 from pathlib import Path
 from typing import Optional, List
 import time
+import json
 
 from .config import Config, DEFAULT_RULES
 from .organizer import FileOrganizer, OrganizerResult
@@ -21,17 +22,17 @@ from .logger_setup import setup_logging, get_log_buffer, get_log_file_path
 logger = logging.getLogger("FileOrganizer")
 
 # ── Palette ────────────────────────────────────────────────────────────────────
-BG       = "#0F1117"
-SURFACE  = "#1A1D27"
-SURFACE2 = "#252836"
-BORDER   = "#2E3247"
+BG       = "#2b2b2b"
+SURFACE  = "#404040"
+SURFACE2 = "#505050"
+BORDER   = "#606060"
 ACCENT   = "#5B8AF5"
 ACCENT2  = "#3D6FF0"
 SUCCESS  = "#3DDC84"
 WARNING  = "#F5A623"
 DANGER   = "#F05C5C"
 TEXT     = "#E8EAF0"
-TEXT_DIM = "#7A809E"
+TEXT_DIM = "#B0B0B0"
 WHITE    = "#FFFFFF"
 
 # ── Fonts (resolved at runtime) ────────────────────────────────────────────────
@@ -183,32 +184,56 @@ class FileOrganizerApp:
         self.root = tk.Tk()
         self.root.withdraw()
 
-        # Resolve fonts after Tk is initialized
-        FONT_FAMILY = _pick(["Outfit", "Nunito", "Segoe UI", "SF Pro Display",
-                              "Helvetica Neue", "Ubuntu"], "Helvetica")
-        MONO_FAMILY = _pick(["JetBrains Mono", "Fira Code", "Cascadia Code",
-                              "Consolas", "Menlo", "Monaco"], "Courier")
+        # Load translations
+        locales_path = Path(__file__).parent.parent / "locales.json"
+        with open(locales_path, 'r', encoding='utf-8') as f:
+            self.translations = json.load(f)
+        self.current_lang = self.config.get("language", "en")
 
-        self.root.title("FileOrganizer")
+        # Set up ttk style
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+        self.style.configure('.', background='#2b2b2b', foreground='#ffffff', font=('Segoe UI', 10))
+        self.style.configure('TButton', relief='flat', borderwidth=0, padding=6)
+        self.style.configure('TLabel', background='#2b2b2b', foreground='#ffffff')
+        self.style.configure('TEntry', fieldbackground='#404040', borderwidth=1)
+        self.style.configure('TCombobox', fieldbackground='#404040', borderwidth=1)
+
+        # Resolve fonts after Tk is initialized
+        FONT_FAMILY = _pick(["Segoe UI", "Helvetica"], "Helvetica")
+        MONO_FAMILY = _pick(["Consolas", "Courier"], "Courier")
+
+        self.root.title(self._t("title"))
         self.root.geometry("1100x700")
         self.root.minsize(900, 580)
-        self.root.configure(bg=BG)
+        self.root.configure(bg='#2b2b2b')
 
         # Try to set window icon
         try:
-            icon_path = Path(__file__).parent.parent / "assets" / "icon.png"
+            icon_path = Path(__file__).parent.parent / "assets" / "icon.ico"
             if icon_path.exists():
-                img = tk.PhotoImage(file=str(icon_path))
-                self.root.iconphoto(True, img)
+                self.root.iconbitmap(str(icon_path))
+            else:
+                # Fallback to PNG if ICO not found
+                png_path = Path(__file__).parent.parent / "assets" / "icon.png"
+                if png_path.exists():
+                    img = tk.PhotoImage(file=str(png_path))
+                    self.root.iconphoto(True, img)
         except Exception:
             pass
 
-        self.watcher = FolderWatcher(self.config, callback=self._on_file_organized)
+        self.watcher = FolderWatcher(self.config, callback=self._handle_result)
         self._stats = {"moved": 0, "skipped": 0, "errors": 0, "total": 0}
         self._log_entries: List[tuple] = []
         self._current_page = None
         self._pages = {}
         self._nav_items = {}
+
+        # Scan interval
+        self.scan_interval = self.config.get("scan_interval", 30)
+        self.scan_thread = None
+        self.scan_running = False
+        self.next_scan_time = time.time() + self.scan_interval
 
         self._build_ui()
         self._navigate("dashboard")
@@ -220,6 +245,55 @@ class FileOrganizerApp:
 
         # Poll log buffer every second
         self._poll_logs()
+
+        # Start periodic scan
+        self._start_periodic_scan()
+
+    def _t(self, key):
+        """Translate key to current language."""
+        return self.translations.get(self.current_lang, {}).get(key, key)
+
+    def _start_periodic_scan(self):
+        if not self.config.watched_folders:
+            messagebox.showwarning(self._t("warning"), self._t("no_folder_selected"))
+            return
+        if self.scan_thread and self.scan_thread.is_alive():
+            return
+        self.scan_running = True
+        self.scan_thread = threading.Thread(target=self._periodic_scan_loop, daemon=True)
+        self.scan_thread.start()
+
+    def _periodic_scan_loop(self):
+        while self.scan_running:
+            now = time.time()
+            if now >= self.next_scan_time:
+                self._perform_scan()
+                self.next_scan_time = now + self.scan_interval
+            time.sleep(1)
+
+    def _perform_scan(self):
+        if not self.config.watched_folders:
+            return
+        organizer = FileOrganizer(self.config)
+        for folder in self.config.watched_folders:
+            try:
+                for file_path in Path(folder).rglob('*'):
+                    if file_path.is_file():
+                        result = organizer.organize_file(str(file_path))
+                        self._on_file_organized(result)
+            except Exception as e:
+                logger.error(f"Scan error: {e}")
+
+    def _update_scan_interval(self, new_interval):
+        try:
+            interval = int(new_interval)
+            if interval > 0:
+                self.scan_interval = interval
+                self.config.set("scan_interval", interval)
+                self.config.save()
+                self.next_scan_time = time.time() + interval
+        except ValueError:
+            pass
 
     # ── Build skeleton ──────────────────────────────────────────────────────────
     def _build_ui(self):
@@ -242,11 +316,11 @@ class FileOrganizerApp:
 
         # Nav items
         nav_config = [
-            ("dashboard",  "📊", "Dashboard"),
-            ("folders",    "📁", "Folders"),
-            ("rules",      "🗂️", "Rules"),
-            ("log",        "📋", "Activity Log"),
-            ("settings",   "⚙️", "Settings"),
+            ("dashboard",  "📊", self._t("dashboard")),
+            ("folders",    "📁", self._t("folders")),
+            ("rules",      "🗂️", self._t("rules")),
+            ("log",        "📋", self._t("log")),
+            ("settings",   "⚙️", self._t("settings")),
         ]
         for page, icon, label in nav_config:
             item = NavItem(self.sidebar, icon, label,
@@ -297,15 +371,15 @@ class FileOrganizerApp:
         # Header
         hdr = tk.Frame(page, bg=BG, padx=28, pady=22)
         hdr.pack(fill="x")
-        tk.Label(hdr, text="Dashboard", bg=BG, fg=WHITE,
+        tk.Label(hdr, text=self._t("dashboard"), bg=BG, fg=WHITE,
                  font=(FONT_FAMILY, 22, "bold")).pack(side="left")
 
         self._watch_btn = StyledButton(
-            hdr, "▶  Start Watching", command=self._toggle_watcher, style="success"
+            hdr, self._t("start_watching"), command=self._toggle_watcher, style="success"
         )
         self._watch_btn.pack(side="right", padx=4)
 
-        StyledButton(hdr, "⟳  Organize Now", command=self._organize_now,
+        StyledButton(hdr, self._t("organize_now"), command=self._organize_now,
                      style="primary").pack(side="right", padx=4)
 
         Separator(page).pack(fill="x", padx=28)
@@ -606,6 +680,68 @@ class FileOrganizerApp:
 
     def _add_category(self):
         self._open_rule_editor(None, None)
+
+    # ── Page: Settings ──────────────────────────────────────────────────────────
+    def _build_settings(self) -> tk.Frame:
+        page = tk.Frame(self.content, bg='#2b2b2b')
+
+        hdr = tk.Frame(page, bg='#2b2b2b', padx=28, pady=22)
+        hdr.pack(fill="x")
+        tk.Label(hdr, text=self._t("settings"), bg='#2b2b2b', fg='white',
+                 font=('Segoe UI', 22, "bold")).pack(side="left")
+
+        Separator(page).pack(fill="x", padx=28)
+
+        settings_frame = tk.Frame(page, bg='#2b2b2b', padx=28, pady=20)
+        settings_frame.pack(fill="both", expand=True)
+
+        # Language
+        lang_frame = tk.Frame(settings_frame, bg='#2b2b2b')
+        lang_frame.pack(fill="x", pady=(0, 20))
+        tk.Label(lang_frame, text=self._t("language"), bg='#2b2b2b', fg='white',
+                 font=('Segoe UI', 12)).pack(side="left")
+        self.lang_var = tk.StringVar(value=self.current_lang)
+        lang_combo = ttk.Combobox(lang_frame, textvariable=self.lang_var,
+                                  values=["en", "ru", "es", "zh", "pt"], state="readonly")
+        lang_combo.pack(side="right")
+        lang_combo.bind("<<ComboboxSelected>>", self._change_language)
+
+        # Scan interval
+        scan_frame = tk.Frame(settings_frame, bg='#2b2b2b')
+        scan_frame.pack(fill="x", pady=(0, 20))
+        tk.Label(scan_frame, text=self._t("scan_interval"), bg='#2b2b2b', fg='white',
+                 font=('Segoe UI', 12)).pack(side="left")
+        self.scan_var = tk.StringVar(value=str(self.scan_interval))
+        scan_entry = ttk.Entry(scan_frame, textvariable=self.scan_var)
+        scan_entry.pack(side="right", padx=(10, 0))
+        ttk.Button(scan_frame, text=self._t("apply"),
+                   command=lambda: self._update_scan_interval(self.scan_var.get())).pack(side="right")
+
+        # Status
+        self.status_label = tk.Label(settings_frame, text="", bg='#2b2b2b', fg='white',
+                                     font=('Segoe UI', 10))
+        self.status_label.pack(anchor="w")
+        self._update_status()
+
+        return page
+
+    def _change_language(self, event=None):
+        self.current_lang = self.lang_var.get()
+        self.config.set("language", self.current_lang)
+        self.config.save()
+        self._update_ui_texts()
+
+    def _update_ui_texts(self):
+        self.root.title(self._t("title"))
+        for page, item in self._nav_items.items():
+            item._lbl.config(text=self._t(page))
+        if self._current_page:
+            self._navigate(self._current_page)  # Rebuild current page
+
+    def _update_status(self):
+        remaining = max(0, int(self.next_scan_time - time.time()))
+        self.status_label.config(text=f"{self._t('next_scan_in')} {remaining} {self._t('sec')}")
+        self.root.after(1000, self._update_status)
 
     def _edit_category(self, cat_name: str, rule: dict):
         self._open_rule_editor(cat_name, rule)
@@ -937,6 +1073,9 @@ class FileOrganizerApp:
         self._quit()
 
     def _quit(self):
+        self.scan_running = False
+        if self.scan_thread and self.scan_thread.is_alive():
+            self.scan_thread.join(timeout=2)
         self.watcher.stop()
         self.root.destroy()
 

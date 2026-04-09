@@ -6,7 +6,7 @@ Handles loading, saving, and managing organization rules.
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import copy
 
 
@@ -85,6 +85,8 @@ DEFAULT_CONFIG = {
     "organize_existing": False,
     "unknown_folder": "Misc",
     "unknown_enabled": True,
+    "language": "en",
+    "scan_interval": 30,
 }
 
 
@@ -145,17 +147,17 @@ class Config:
         with open(self._path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, indent=2)
 
-    def get(self, key: str, default=None):
+    def get(self, key: str, default: Any = None) -> Any:
         return self._data.get(key, default)
 
     def set(self, key: str, value: Any):
         self._data[key] = value
         self.save()
 
-    def get_rules(self) -> Dict[str, Dict]:
+    def get_rules(self) -> Dict[str, Dict[str, Any]]:
         return self._data.get("rules", {})
 
-    def set_rules(self, rules: Dict[str, Dict]):
+    def set_rules(self, rules: Dict[str, Dict[str, Any]]):
         self._data["rules"] = rules
         self.save()
 
@@ -208,7 +210,7 @@ class Config:
     def unknown_enabled(self) -> bool:
         return self._data.get("unknown_enabled", True)
 
-    def _deep_merge(self, base: dict, override: dict):
+    def _deep_merge(self, base: Dict[str, Any], override: Dict[str, Any]):
         for k, v in override.items():
             if k in base and isinstance(base[k], dict) and isinstance(v, dict):
                 self._deep_merge(base[k], v)
