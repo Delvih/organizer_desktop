@@ -681,50 +681,6 @@ class FileOrganizerApp:
     def _add_category(self):
         self._open_rule_editor(None, None)
 
-    # ── Page: Settings ──────────────────────────────────────────────────────────
-    def _build_settings(self) -> tk.Frame:
-        page = tk.Frame(self.content, bg='#2b2b2b')
-
-        hdr = tk.Frame(page, bg='#2b2b2b', padx=28, pady=22)
-        hdr.pack(fill="x")
-        tk.Label(hdr, text=self._t("settings"), bg='#2b2b2b', fg='white',
-                 font=('Segoe UI', 22, "bold")).pack(side="left")
-
-        Separator(page).pack(fill="x", padx=28)
-
-        settings_frame = tk.Frame(page, bg='#2b2b2b', padx=28, pady=20)
-        settings_frame.pack(fill="both", expand=True)
-
-        # Language
-        lang_frame = tk.Frame(settings_frame, bg='#2b2b2b')
-        lang_frame.pack(fill="x", pady=(0, 20))
-        tk.Label(lang_frame, text=self._t("language"), bg='#2b2b2b', fg='white',
-                 font=('Segoe UI', 12)).pack(side="left")
-        self.lang_var = tk.StringVar(value=self.current_lang)
-        lang_combo = ttk.Combobox(lang_frame, textvariable=self.lang_var,
-                                  values=["en", "ru", "es", "zh", "pt"], state="readonly")
-        lang_combo.pack(side="right")
-        lang_combo.bind("<<ComboboxSelected>>", self._change_language)
-
-        # Scan interval
-        scan_frame = tk.Frame(settings_frame, bg='#2b2b2b')
-        scan_frame.pack(fill="x", pady=(0, 20))
-        tk.Label(scan_frame, text=self._t("scan_interval"), bg='#2b2b2b', fg='white',
-                 font=('Segoe UI', 12)).pack(side="left")
-        self.scan_var = tk.StringVar(value=str(self.scan_interval))
-        scan_entry = ttk.Entry(scan_frame, textvariable=self.scan_var)
-        scan_entry.pack(side="right", padx=(10, 0))
-        ttk.Button(scan_frame, text=self._t("apply"),
-                   command=lambda: self._update_scan_interval(self.scan_var.get())).pack(side="right")
-
-        # Status
-        self.status_label = tk.Label(settings_frame, text="", bg='#2b2b2b', fg='white',
-                                     font=('Segoe UI', 10))
-        self.status_label.pack(anchor="w")
-        self._update_status()
-
-        return page
-
     def _change_language(self, event=None):
         self.current_lang = self.lang_var.get()
         self.config.set("language", self.current_lang)
@@ -885,7 +841,7 @@ class FileOrganizerApp:
 
         hdr = tk.Frame(page, bg=BG, padx=28, pady=22)
         hdr.pack(fill="x")
-        tk.Label(hdr, text="Settings", bg=BG, fg=WHITE,
+        tk.Label(hdr, text=self._t("settings"), bg=BG, fg=WHITE,
                  font=(FONT_FAMILY, 22, "bold")).pack(side="left")
 
         Separator(page).pack(fill="x", padx=28)
@@ -913,6 +869,34 @@ class FileOrganizerApp:
                                  command=lambda: self.config.set(key, var.get()))
             sw.pack(side="right")
             return var
+
+        section(self._t("language"))
+        lang_r = tk.Frame(form, bg=BG, pady=8)
+        lang_r.pack(fill="x")
+        tk.Label(lang_r, text=self._t("language"), bg=BG, fg=TEXT,
+                 font=(FONT_FAMILY, 11)).pack(side="left")
+        self.lang_var = tk.StringVar(value=self.current_lang)
+        lang_combo = ttk.Combobox(lang_r, textvariable=self.lang_var,
+                                  values=["en", "ru", "es", "zh", "pt"], state="readonly", width=15)
+        lang_combo.pack(side="right")
+        lang_combo.bind("<<ComboboxSelected>>", self._change_language)
+
+        section(self._t("scan_interval"))
+        scan_r = tk.Frame(form, bg=BG, pady=8)
+        scan_r.pack(fill="x")
+        tk.Label(scan_r, text=self._t("scan_interval"), bg=BG, fg=TEXT,
+                 font=(FONT_FAMILY, 11)).pack(side="left")
+        self.scan_var = tk.StringVar(value=str(self.scan_interval))
+        scan_entry = ttk.Entry(scan_r, textvariable=self.scan_var, width=15)
+        scan_entry.pack(side="right", padx=(10, 0))
+        StyledButton(scan_r, self._t("apply"),
+                   command=lambda: self._update_scan_interval(self.scan_var.get()),
+                   style="secondary", padx=8, pady=4).pack(side="right")
+        
+        self.status_label = tk.Label(form, text="", bg=BG, fg=TEXT_DIM,
+                                     font=(FONT_FAMILY, 9))
+        self.status_label.pack(anchor="w", pady=(8, 0))
+        self._update_status()
 
         section("Behavior")
 
