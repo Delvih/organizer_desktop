@@ -37,15 +37,42 @@ class FileOrganizer:
         ext_map = self.config.get_extension_map()
         return ext_map.get(ext)
 
+    def get_category_root(self, category: str) -> Path:
+        """
+        Return the root folder for a category.
+        Uses a manually configured destination root when present; otherwise
+        falls back to system folders for common media types.
+        """
+        if self.config.destination_folder:
+            return Path(self.config.destination_folder) / category
+
+        system_folders = {
+            "Documents": Path.home() / "Documents",
+            "Images": Path.home() / "Pictures",
+            "Videos": Path.home() / "Videos",
+            "Music": Path.home() / "Music",
+        }
+        system_root = system_folders.get(category)
+        if system_root is not None:
+            return system_root
+
+        return Path.home() / "Documents" / "FileOrganizer" / category
+
+    def build_destination_path(self, filepath: str, category: str) -> Path:
+        """
+        Build the final destination path for a file.
+        Files are stored inside a folder named after the file stem.
+        """
+        src = Path(filepath)
+        category_root = self.get_category_root(category)
+        wrapper_folder = category_root / src.stem
+        return wrapper_folder / src.name
+
     def resolve_destination(self, filepath: str) -> Tuple[str, Optional[str]]:
         """
         Determine where a file should go.
-        Returns (category_name_or_unknown, destination_folder).
+        Returns (category_name_or_unknown, destination_file_path).
         """
-        dest_root = self.config.destination_folder
-        if not dest_root:
-            dest_root = str(Path(filepath).parent)
-
         category = self.categorize(filepath)
         if category is None:
             if self.config.unknown_enabled:
@@ -53,8 +80,8 @@ class FileOrganizer:
             else:
                 return ("", None)
 
-        dest_folder = Path(dest_root) / category
-        return (category, str(dest_folder))
+        dest_path = self.build_destination_path(filepath, category)
+        return (category, str(dest_path))
 
     def _handle_conflict(self, dest_path: Path) -> Optional[Path]:
         """
@@ -80,8 +107,10 @@ class FileOrganizer:
 
     def organize_file(self, filepath: str, dry_run: bool = False) -> OrganizerResult:
         """
-        Move a single file to its destination category folder.
-        Returns an OrganizerResult describing what happened.
+        Move a single file through the organization pipeline.
+        1. Detect category
+        2. Select category root folder
+        3. Save the file inside its own wrapper folder
         """
         src = Path(filepath)
 
@@ -94,8 +123,8 @@ class FileOrganizer:
         if src.name.startswith(".") or src.name.endswith(".tmp") or src.name.endswith("~"):
             return OrganizerResult(False, filepath, "", "skipped", "Temporary/hidden file ignored")
 
-        category, dest_folder = self.resolve_destination(filepath)
-        if dest_folder is None:
+        category, dest_file = self.resolve_destination(filepath)
+        if dest_file is None:
             return OrganizerResult(
                 False,
                 filepath,
@@ -104,8 +133,8 @@ class FileOrganizer:
                 f"No category matched extension '{src.suffix}' and unknown folder disabled",
             )
 
-        dest_dir = Path(dest_folder)
-        dest_path = dest_dir / src.name
+        dest_path = Path(dest_file)
+        dest_dir = dest_path.parent
 
         if dest_path.resolve() == src.resolve():
             return OrganizerResult(False, filepath, str(dest_path), "skipped", "File already in correct location")
@@ -124,6 +153,7 @@ class FileOrganizer:
             if resolved != dest_path:
                 action = "renamed"
             dest_path = resolved
+            dest_dir = dest_path.parent
 
         if not dry_run:
             try:
@@ -137,7 +167,13 @@ class FileOrganizer:
                 logger.error(f"OS error moving '{src.name}': {e}")
                 return OrganizerResult(False, filepath, str(dest_path), "error", str(e))
 
-        return OrganizerResult(True, filepath, str(dest_path), action, f"Moved to {category}")
+        return OrganizerResult(
+            True,
+            filepath,
+            str(dest_path),
+            action,
+            f"Moved to {category} via wrapper folder",
+        )
 
     def organize_folder(self, folder: str, dry_run: bool = False) -> list:
         """

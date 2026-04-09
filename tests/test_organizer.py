@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from app.organizer import FileOrganizer
 
 
@@ -13,7 +14,7 @@ class DummyConfig:
         return {".pdf": "Documents"}
 
 
-def test_organize_file_moves(tmp_path):
+def test_organize_file_moves_into_wrapper_folder(tmp_path):
     dest = tmp_path / "dest"
     cfg = DummyConfig(str(dest))
 
@@ -26,5 +27,5 @@ def test_organize_file_moves(tmp_path):
     result = organizer.organize_file(str(src_file))
     assert result.success is True
 
-    out_path = dest / "Documents" / "sample.pdf"
+    out_path = dest / "Documents" / "sample" / "sample.pdf"
     assert out_path.exists()

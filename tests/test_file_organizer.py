@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import app.organizer as organizer_mod
 import app.watcher as watcher
 
 
@@ -21,14 +22,13 @@ def test_resolve_destination_unknown_disabled(organizer, config):
 
 
 def test_conflict_rename(organizer, config, tmp_path):
-    # Setup source and existing destination
     src_dir = tmp_path / "src"
     src_dir.mkdir()
     src = src_dir / "file.txt"
     src.write_text("a")
 
     config.destination_folder = str(tmp_path / "destroot")
-    dest_folder = Path(config.destination_folder) / "Documents"
+    dest_folder = Path(config.destination_folder) / "Documents" / "file"
     dest_folder.mkdir(parents=True)
     (dest_folder / "file.txt").write_text("existing")
 
@@ -39,11 +39,9 @@ def test_conflict_rename(organizer, config, tmp_path):
 
 
 def test_conflict_skip_and_overwrite(organizer, config, tmp_path):
-    # Skip
     config.destination_folder = str(tmp_path / "d1")
-    dest = Path(config.destination_folder) / "Documents"
+    dest = Path(config.destination_folder) / "Documents" / "a"
     dest.mkdir(parents=True)
-    # create a file in destination with same name as source to trigger conflict
     (dest / "a.txt").write_text("old")
     s = tmp_path / "a.txt"
     s.write_text("new")
@@ -51,16 +49,15 @@ def test_conflict_skip_and_overwrite(organizer, config, tmp_path):
     r = organizer.organize_file(str(s))
     assert r.action == "skipped"
 
-    # Overwrite
     s2 = tmp_path / "src2.txt"
     s2.write_text("NEW")
     config.conflict_strategy = "overwrite"
-    # place same name into dest
-    (dest / "src2.txt").write_text("OLD")
-    config.destination_folder = str(tmp_path / "d1")
+    dest2 = Path(config.destination_folder) / "Documents" / "src2"
+    dest2.mkdir(parents=True)
+    (dest2 / "src2.txt").write_text("OLD")
     r2 = organizer.organize_file(str(s2))
     assert r2.success is True
-    assert (dest / "src2.txt").read_text(encoding="utf-8") == "NEW"
+    assert (dest2 / "src2.txt").read_text(encoding="utf-8") == "NEW"
 
 
 def test_skip_hidden_and_temp(organizer, tmp_path):
@@ -84,8 +81,10 @@ def test_organize_folder_moves_all_files(organizer, config, tmp_path):
 
     config.destination_folder = str(tmp_path / "destroot")
     results = organizer.organize_folder(str(src), dry_run=False)
-    # three files processed (noext goes to Misc)
     assert len(results) == 3
+    assert (tmp_path / "destroot" / "Documents" / "one" / "one.txt").exists()
+    assert (tmp_path / "destroot" / "Images" / "two" / "two.jpg").exists()
+    assert (tmp_path / "destroot" / "Misc" / "noext" / "noext").exists()
 
 
 def test_missing_source_returns_error(organizer):
@@ -113,11 +112,11 @@ def test_unknown_no_extension(organizer, config, tmp_path):
     config.destination_folder = str(tmp_path / "d")
     r = organizer.organize_file(str(s))
     assert r.success is True
-    assert "Misc" in r.dst
+    assert str(Path("Misc") / "file" / "file") in r.dst
 
 
 def test_unicode_and_long_filename(organizer, config, tmp_path):
-    uni = tmp_path / "файл_✓.pdf"
+    uni = tmp_path / "файл_ok.pdf"
     uni.write_text("x")
     config.destination_folder = str(tmp_path / "d2")
     r = organizer.organize_file(str(uni))
@@ -130,8 +129,25 @@ def test_unicode_and_long_filename(organizer, config, tmp_path):
     assert r2.success is True
 
 
+def test_system_folder_routing_without_manual_destination(config, tmp_path, monkeypatch):
+    fake_home = tmp_path / "home"
+    for folder_name in ["Documents", "Pictures", "Videos", "Music"]:
+        (fake_home / folder_name).mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setattr(organizer_mod.Path, "home", lambda: fake_home)
+    organizer = organizer_mod.FileOrganizer(config)
+
+    downloads = fake_home / "Downloads"
+    downloads.mkdir(parents=True, exist_ok=True)
+    video = downloads / "clip.mp4"
+    video.write_text("video")
+
+    result = organizer.organize_file(str(video))
+    assert result.success is True
+    assert (fake_home / "Videos" / "clip" / "clip.mp4").exists()
+
+
 def test_watcher_handles_file_created(organizer, tmp_path):
-    """Simulate watchdog FileCreatedEvent -> handler should call organizer and callback."""
     from app.watcher import _OrganizerEventHandler
 
     results = []
@@ -194,7 +210,6 @@ def test_watcher_multiple_files(organizer, tmp_path):
 
 @pytest.mark.performance
 def test_performance_dry_run(organizer, config, tmp_path):
-    # Performance-oriented dry-run: create many small files and ensure quick processing
     src = tmp_path / "bulk"
     src.mkdir()
     n = 1000
