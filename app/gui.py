@@ -541,13 +541,23 @@ class FileOrganizerApp:
 
     def _add_activity(self, result: OrganizerResult):
         self._activity_text.config(state="normal")
-        ts = result.timestamp.strftime("%H:%M:%S")
+        ts   = result.timestamp.strftime("%H:%M:%S")
         name = Path(result.src).name
-        tag = result.action if result.action in ("moved", "skipped", "error", "renamed") else "dim"
-        icon = {"moved": "✅", "skipped": "⏭️", "error": "❌", "renamed": "🔄"}.get(result.action, "•")
-        line = f"[{ts}] {icon} {name}  ->  {Path(result.dst).parent.name if result.dst else '?'}\n"
+        tag  = result.action if result.action in ("moved", "skipped", "error", "renamed") else "dim"
+        icon = {"moved": ">>", "skipped": "--", "error": "!!", "renamed": "~~"}.get(result.action, " *")
+
+        if result.action in ("moved", "renamed") and result.dst:
+            # Show full destination path so user knows exactly where the file is
+            dest_str = result.dst
+        elif result.action in ("skipped", "error"):
+            # Show reason — much more useful than a path
+            dest_str = result.message or "?"
+        else:
+            dest_str = result.dst or "?"
+
+        line = f"[{ts}] {icon}  {name}\n       -> {dest_str}\n"
         self._activity_text.insert("1.0", line, tag)
-        # Keep last 100 lines
+        # Keep last 50 entries (100 lines)
         lines = int(self._activity_text.index("end-1c").split(".")[0])
         if lines > 100:
             self._activity_text.delete(f"{101}.0", "end")

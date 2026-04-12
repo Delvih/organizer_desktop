@@ -5,61 +5,151 @@ Core file organization logic.
 import logging
 import os
 import shutil
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Set, Tuple
 
 from .config import Config
 
 
 logger = logging.getLogger("FileOrganizer")
 
-# Folders that must never be touched — system/program directories that would
-# be destroyed if their files were moved and wrapper-folders created inside.
-BLACKLISTED_FOLDERS = {
+# ---------------------------------------------------------------------------
+# Blacklist — exact folder names that are ALWAYS system-critical.
+# We match these against individual path components (case-insensitive).
+# Keep this list tight: only names that are *exclusively* system folders.
+# ---------------------------------------------------------------------------
+_BLACKLIST_EXACT: Set[str] = {
     "windows",
     "program files",
     "program files (x86)",
     "system32",
     "syswow64",
-    "appdata",
-    "local",
-    "roaming",
-    "localappdata",
     "programdata",
     "system volume information",
     "$recycle.bin",
-    "recovery",
-    "boot",
-    "efi",
 }
+
+# These names are only dangerous when they appear directly under "appdata".
+# "local" and "roaming" are common English words — do NOT block them globally.
+_BLACKLIST_UNDER_APPDATA: Set[str] = {"local", "roaming", "localappdata"}
 
 
 def _is_path_blacklisted(path: Path) -> bool:
     """
-    Return True if *path* or any of its ancestors is a blacklisted
-    system folder, or if any component starts with a dot (hidden dir),
-    or carries the Windows FILE_ATTRIBUTE_SYSTEM flag.
+    Return True if *path* is inside a protected system folder.
+
+    Rules (in order):
+    1. Any component exactly matches a top-level system name (windows, system32 …)
+    2. "local" / "roaming" only when they sit directly under "appdata"
+    3. Any component starts with a dot  →  hidden directory
+    4. Windows FILE_ATTRIBUTE_SYSTEM flag on the directory itself
     """
-    # Check every component of the path
-    for part in path.parts:
-        part_lower = part.lower().rstrip("\\/")
-        if part_lower in BLACKLISTED_FOLDERS:
-            return True
-        # Hidden dirs (dot-prefixed) on any platform
-        if part_lower.startswith(".") and part_lower not in (".", ".."):
+    parts = [p.lower().rstrip("\\/") for p in path.parts]
+
+    for i, part in enumerate(parts):
+        # Rule 1 — unconditional system names
+        if part in _BLACKLIST_EXACT:
             return True
 
-    # Windows-specific: FILE_ATTRIBUTE_SYSTEM (0x4) on the file's parent dir
+        # Rule 2 — "local"/"roaming" only under AppData
+        if part in _BLACKLIST_UNDER_APPDATA:
+            if i > 0 and parts[i - 1] == "appdata":
+                return True
+
+        # Rule 3 — hidden dirs (dot-prefix), skip "." and ".."
+        if part.startswith(".") and part not in (".", ".."):
+            return True
+
+    # Rule 4 — Windows FILE_ATTRIBUTE_SYSTEM (0x4)
+    # Only apply outside the user's home directory.
+    # On localised Windows (Russian, Chinese, etc.) user shell folders like
+    # Загрузки / Документы can carry FILE_ATTRIBUTE_READONLY or even
+    # FILE_ATTRIBUTE_SYSTEM as a shell-namespace hint — we must not block them.
     if os.name == "nt":
         try:
-            attrs = os.stat(path).st_file_attributes  # type: ignore[attr-defined]
-            if attrs & 0x4:  # FILE_ATTRIBUTE_SYSTEM
-                return True
-        except (OSError, AttributeError):
-            pass
+            home = Path.home()
+            path.relative_to(home)   # raises ValueError if NOT under home
+            # Path is inside the user's home — skip the system-attribute check.
+        except ValueError:
+            # Path is outside home → apply the check
+            try:
+                attrs = os.stat(path).st_file_attributes  # type: ignore[attr-defined]
+                if attrs & 0x4:  # FILE_ATTRIBUTE_SYSTEM
+                    return True
+            except (OSError, AttributeError):
+                pass
 
     return False
+
+
+# ---------------------------------------------------------------------------
+# Global set of file paths currently being organised.
+# Prevents the watcher and the periodic scan from organising the same file
+# simultaneously (race condition → double-move → FileNotFoundError).
+# ---------------------------------------------------------------------------
+_IN_PROGRESS: Set[str] = set()
+_IN_PROGRESS_LOCK = threading.Lock()
+
+
+# ---------------------------------------------------------------------------
+# Windows: read actual user-folder paths from the registry.
+# This is language-independent — works on English, Russian, Chinese, etc.
+# "Documents" on a Russian install is actually "Документы" on disk; the
+# registry always stores the real filesystem path, not the display name.
+# ---------------------------------------------------------------------------
+# Registry key → human-readable category used by this app
+_WIN_SHELL_FOLDER_KEYS = {
+    "Personal":                                       "Documents",
+    "My Pictures":                                    "Images",
+    "My Video":                                       "Videos",
+    "My Music":                                       "Music",
+    "{374DE290-123F-4565-9164-39C4925E467B}":         "Downloads",
+}
+
+def _win_user_folders() -> dict:
+    """
+    Return {category: Path} for well-known Windows user folders,
+    read from the registry so they are correct regardless of UI language.
+    Returns an empty dict on non-Windows or if the registry is unavailable.
+    """
+    if os.name != "nt":
+        return {}
+    result: dict = {}
+    try:
+        import winreg
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",
+        )
+        for reg_name, category in _WIN_SHELL_FOLDER_KEYS.items():
+            try:
+                raw, _ = winreg.QueryValueEx(key, reg_name)
+                # Expand %USERPROFILE%, %APPDATA%, … that Windows stores literally
+                expanded = os.path.expandvars(raw)
+                result[category] = Path(expanded)
+            except FileNotFoundError:
+                pass
+        winreg.CloseKey(key)
+    except Exception as exc:
+        logger.debug(f"Could not read user shell folders from registry: {exc}")
+    return result
+
+
+# Cache so we don't hit the registry on every file operation
+_WIN_FOLDERS_CACHE: Optional[dict] = None
+_WIN_FOLDERS_LOCK = threading.Lock()
+
+
+def _get_win_user_folder(category: str) -> Optional[Path]:
+    """Return the actual (localised) path for a well-known user folder."""
+    global _WIN_FOLDERS_CACHE
+    with _WIN_FOLDERS_LOCK:
+        if _WIN_FOLDERS_CACHE is None:
+            _WIN_FOLDERS_CACHE = _win_user_folders()
+    return _WIN_FOLDERS_CACHE.get(category)
 
 
 class OrganizerResult:
@@ -88,23 +178,28 @@ class FileOrganizer:
     def get_category_root(self, category: str) -> Path:
         """
         Return the root folder for a category.
-        Uses a manually configured destination root when present; otherwise
-        falls back to system folders for common media types.
+
+        Priority:
+        1. Manually configured destination root (user set it explicitly)
+        2. Windows registry  → actual localised path (Документы, Изображения …)
+        3. Hardcoded English fallback (non-Windows or registry unavailable)
         """
         if self.config.destination_folder:
             return Path(self.config.destination_folder) / category
 
-        system_folders = {
-            "Documents": Path.home() / "Documents",
-            "Images": Path.home() / "Pictures",
-            "Videos": Path.home() / "Videos",
-            "Music": Path.home() / "Music",
-        }
-        system_root = system_folders.get(category)
-        if system_root is not None:
-            return system_root
+        # Try Windows registry first — language-independent, always correct
+        win_folder = _get_win_user_folder(category)
+        if win_folder is not None:
+            return win_folder
 
-        return Path.home() / "Documents" / "FileOrganizer" / category
+        # Fallback for non-Windows or registry miss
+        fallback = {
+            "Documents": Path.home() / "Documents",
+            "Images":    Path.home() / "Pictures",
+            "Videos":    Path.home() / "Videos",
+            "Music":     Path.home() / "Music",
+        }
+        return fallback.get(category, Path.home() / "Documents" / "FileOrganizer" / category)
 
     def build_destination_path(self, filepath: str, category: str) -> Path:
         """
@@ -159,8 +254,30 @@ class FileOrganizer:
         1. Detect category
         2. Select category root folder
         3. Save the file inside its own wrapper folder
+
+        Thread-safe: uses a global in-progress set so the watcher and the
+        periodic scan never process the same file simultaneously.
         """
         src = Path(filepath)
+        src_key = str(src.resolve())
+
+        # ── race-condition guard ─────────────────────────────────────────────
+        with _IN_PROGRESS_LOCK:
+            if src_key in _IN_PROGRESS:
+                return OrganizerResult(
+                    False, filepath, "", "skipped",
+                    "Already being processed by another thread"
+                )
+            _IN_PROGRESS.add(src_key)
+
+        try:
+            return self._organize_file_inner(src, dry_run)
+        finally:
+            with _IN_PROGRESS_LOCK:
+                _IN_PROGRESS.discard(src_key)
+
+    def _organize_file_inner(self, src: Path, dry_run: bool) -> OrganizerResult:
+        filepath = str(src)
 
         if not src.exists():
             return OrganizerResult(False, filepath, "", "error", "Source file not found")
@@ -182,18 +299,16 @@ class FileOrganizer:
         category, dest_file = self.resolve_destination(filepath)
         if dest_file is None:
             return OrganizerResult(
-                False,
-                filepath,
-                "",
-                "skipped",
+                False, filepath, "", "skipped",
                 f"No category matched extension '{src.suffix}' and unknown folder disabled",
             )
 
         dest_path = Path(dest_file)
-        dest_dir = dest_path.parent
+        dest_dir  = dest_path.parent
 
         if dest_path.resolve() == src.resolve():
-            return OrganizerResult(False, filepath, str(dest_path), "skipped", "File already in correct location")
+            return OrganizerResult(False, filepath, str(dest_path), "skipped",
+                                   "File already in correct location")
 
         # Safety: never write into blacklisted system directories
         if _is_path_blacklisted(dest_dir):
@@ -208,35 +323,62 @@ class FileOrganizer:
             resolved = self._handle_conflict(dest_path)
             if resolved is None:
                 return OrganizerResult(
-                    False,
-                    filepath,
-                    str(dest_path),
-                    "skipped",
+                    False, filepath, str(dest_path), "skipped",
                     "File already exists and conflict strategy is 'skip'",
                 )
             if resolved != dest_path:
                 action = "renamed"
             dest_path = resolved
-            dest_dir = dest_path.parent
+            dest_dir  = dest_path.parent
 
-        if not dry_run:
-            try:
+        if dry_run:
+            return OrganizerResult(True, filepath, str(dest_path), action,
+                                   f"[DRY RUN] Would move to {category}")
+
+        # ── actual move with retry ───────────────────────────────────────────
+        # Create the destination directory ONLY now (all checks passed).
+        dir_created = False
+        try:
+            if not dest_dir.exists():
                 dest_dir.mkdir(parents=True, exist_ok=True)
+                dir_created = True
+        except OSError as e:
+            logger.error(f"Cannot create destination dir '{dest_dir}': {e}")
+            return OrganizerResult(False, filepath, str(dest_path), "error",
+                                   f"Cannot create destination folder: {e}")
+
+        # Retry up to 3 times — handles files briefly locked by antivirus /
+        # Windows Explorer right after they land in the watched folder.
+        last_error: Optional[Exception] = None
+        for attempt in range(3):
+            try:
                 shutil.move(str(src), str(dest_path))
                 logger.info(f"[{action.upper()}] '{src.name}' -> '{dest_path}'")
+                last_error = None
+                break
             except PermissionError as e:
-                logger.error(f"Permission denied moving '{src.name}': {e}")
-                return OrganizerResult(False, filepath, str(dest_path), "error", f"Permission denied: {e}")
+                last_error = e
+                if attempt < 2:
+                    time.sleep(0.8)   # wait for file lock to release
             except OSError as e:
-                logger.error(f"OS error moving '{src.name}': {e}")
-                return OrganizerResult(False, filepath, str(dest_path), "error", str(e))
+                last_error = e
+                break   # non-permission OS errors are unlikely to clear up
+
+        if last_error is not None:
+            # Move failed — clean up the empty directory we just created so
+            # the user doesn't see ghost folders.
+            if dir_created:
+                try:
+                    dest_dir.rmdir()   # only removes if empty
+                except OSError:
+                    pass
+            err_msg = str(last_error)
+            logger.error(f"Failed to move '{src.name}': {err_msg}")
+            return OrganizerResult(False, filepath, str(dest_path), "error", err_msg)
 
         return OrganizerResult(
-            True,
-            filepath,
-            str(dest_path),
-            action,
-            f"Moved to {category} via wrapper folder",
+            True, filepath, str(dest_path), action,
+            f"Moved to {category}",
         )
 
     def organize_folder(self, folder: str, dry_run: bool = False) -> list:
