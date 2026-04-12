@@ -1,69 +1,41 @@
 # FileOrganizer
 
-Desktop application for automatic file organization with a Tkinter GUI and
-`watchdog`-based folder monitoring.
+Desktop app that watches folders and automatically sorts files into categories (Documents, Images, Videos, Music, Archives, Code, and more) using a Tkinter GUI and real-time `watchdog` monitoring.
+
+## Requirements
+
+- Python 3.9+
+- `pip install -r requirements.txt`
 
 ## Run
 
-On Windows, use:
-
 ```bat
-START_APP.bat
+START_APP.bat        # Windows (auto-detects Python / venv)
 ```
-
-Compatibility launchers:
-
-```bat
-RUN.bat
-Запуск.bat
-```
-
-Direct Python start:
 
 ```bash
-python main.py
+python main.py       # any platform
 ```
 
-## Install Dependencies
+## Build (Windows)
 
 ```bash
-pip install -r requirements.txt
+python build.py --onefile            # portable .exe
+python build.py --onefile --installer  # portable .exe + installer
 ```
 
-## Verify
+Output goes to `dist/`.
+
+## Test
 
 ```bash
-python test_components.py
 python -m pytest -q
 ```
 
-## Build Windows Deliverables
+## Features
 
-Portable executable:
-
-```bash
-python build.py --onefile
-```
-
-Portable executable plus installer:
-
-```bash
-python build.py --onefile --installer
-```
-
-Build output is written to `dist/`.
-
-## Project Structure
-
-```text
-fileorganizer/
-|-- app/
-|-- assets/
-|-- tests/
-|-- build.py
-|-- create_icon.py
-|-- locales.json
-|-- main.py
-|-- START_APP.bat
-`-- requirements.txt
-```
+- Real-time folder monitoring (watchdog)
+- 8 built-in file categories with customisable extension rules
+- Conflict strategies: rename, skip, overwrite
+- 5 languages: English, Russian, Spanish, Chinese, Portuguese
+- System tray support (optional — requires `pystray` + `Pillow`)

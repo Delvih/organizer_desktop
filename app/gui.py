@@ -22,19 +22,66 @@ from .runtime import resource_path
 
 logger = logging.getLogger("FileOrganizer")
 
-# Palette
-BG       = "#2b2b2b"
-SURFACE  = "#404040"
-SURFACE2 = "#505050"
-BORDER   = "#606060"
-ACCENT   = "#5B8AF5"
-ACCENT2  = "#3D6FF0"
-SUCCESS  = "#3DDC84"
-WARNING  = "#F5A623"
-DANGER   = "#F05C5C"
-TEXT     = "#E8EAF0"
-TEXT_DIM = "#B0B0B0"
+# ── Acrylic / dark-glass palette ────────────────────────────────────────────
+BG       = "#1a1a2e"   # very dark navy — main background
+SURFACE  = "#16213e"   # sidebar / card surface
+SURFACE2 = "#0f3460"   # hover / active surface
+BORDER   = "#533483"   # subtle violet border
+ACCENT   = "#8A2BE2"   # BlueViolet — primary accent
+ACCENT2  = "#6A1CB2"   # darker violet for hover/active
+SUCCESS  = "#00d4aa"   # teal-green
+WARNING  = "#F5A623"   # amber
+DANGER   = "#FF4757"   # red
+TEXT     = "#e8eaf6"   # near-white
+TEXT_DIM = "#9fa8da"   # muted indigo-tint
 WHITE    = "#FFFFFF"
+
+
+def _apply_acrylic(hwnd):
+    """
+    Apply Windows 10/11 Acrylic (DWM blur-behind) to a Tk window.
+    Falls back silently if the API is unavailable.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        import ctypes.wintypes as wt
+
+        # SetWindowCompositionAttribute – undocumented but stable since Win10 1703
+        ACCENT_ENABLE_ACRYLICBLURBEHIND = 4
+        ACCENT_FLAG_DRAW_ALL_BORDERS    = 0x20
+
+        class ACCENT_POLICY(ctypes.Structure):
+            _fields_ = [
+                ("AccentState",   ctypes.c_int),
+                ("AccentFlags",   ctypes.c_int),
+                ("GradientColor", ctypes.c_uint),
+                ("AnimationId",   ctypes.c_int),
+            ]
+
+        class WINDOWCOMPOSITIONATTRIBDATA(ctypes.Structure):
+            _fields_ = [
+                ("Attribute",  ctypes.c_int),
+                ("pData",      ctypes.c_void_p),
+                ("cbData",     ctypes.c_size_t),
+            ]
+
+        # RGBA tint: ~70% opaque dark navy #1a1a2e → B3 1a 1a 2e
+        accent = ACCENT_POLICY()
+        accent.AccentState   = ACCENT_ENABLE_ACRYLICBLURBEHIND
+        accent.AccentFlags   = ACCENT_FLAG_DRAW_ALL_BORDERS
+        accent.GradientColor = 0xCC1a1a2e  # ARGB little-endian tint (80% opacity)
+
+        data = WINDOWCOMPOSITIONATTRIBDATA()
+        data.Attribute = 19  # WCA_ACCENT_POLICY
+        data.pData     = ctypes.cast(ctypes.pointer(accent), ctypes.c_void_p)
+        data.cbData    = ctypes.sizeof(accent)
+
+        user32 = ctypes.windll.user32
+        user32.SetWindowCompositionAttribute(hwnd, ctypes.byref(data))
+    except Exception:
+        pass  # not critical — app works without Acrylic
 
 # Fonts (resolved at runtime)
 def _pick(candidates, fallback):
@@ -51,15 +98,14 @@ MONO_FAMILY   = None
 class StyledButton(tk.Button):
     def __init__(self, parent, text, command=None, style="primary", **kw):
         colors = {
-            "primary":   (ACCENT,   WHITE,   ACCENT2),
-            "success":   (SUCCESS,  "#0F1117", "#2CB870"),
-            "danger":    (DANGER,   WHITE,   "#C04444"),
-            "ghost":     (SURFACE2, TEXT_DIM, BORDER),
-            "secondary": (SURFACE2, TEXT,    BORDER),
+            # bg            fg        hover/active
+            "primary":   (ACCENT,   WHITE,    ACCENT2),
+            "success":   (SUCCESS,  "#0a0e1a", "#00a888"),
+            "danger":    (DANGER,   WHITE,    "#cc2233"),
+            "ghost":     (SURFACE,  TEXT_DIM,  SURFACE2),
+            "secondary": (SURFACE2, TEXT,     BORDER),
         }
         bg, fg, active = colors.get(style, colors["primary"])
-        # Allow callers to override padding via kwargs without causing
-        # multiple-values-for-keyword errors. Default padding is 14x7.
         kw.setdefault("padx", 14)
         kw.setdefault("pady", 7)
         super().__init__(
@@ -208,14 +254,28 @@ class FileOrganizerApp:
             self.translations = json.load(f)
         self.current_lang = self.config.get("language", "en")
 
-        # Set up ttk style
+        # Set up ttk style — dark acrylic / violet theme
         self.style = ttk.Style()
         self.style.theme_use('clam')
-        self.style.configure('.', background='#2b2b2b', foreground='#ffffff', font=('Segoe UI', 10))
-        self.style.configure('TButton', relief='flat', borderwidth=0, padding=6)
-        self.style.configure('TLabel', background='#2b2b2b', foreground='#ffffff')
-        self.style.configure('TEntry', fieldbackground='#404040', borderwidth=1)
-        self.style.configure('TCombobox', fieldbackground='#404040', borderwidth=1)
+        self.style.configure('.',
+            background=BG, foreground=TEXT, font=('Segoe UI', 10),
+            bordercolor=BORDER, troughcolor=SURFACE, selectbackground=ACCENT)
+        self.style.configure('TButton',
+            background=ACCENT, foreground=WHITE, relief='flat', borderwidth=0,
+            padding=6, focuscolor=ACCENT2)
+        self.style.map('TButton',
+            background=[('active', ACCENT2), ('pressed', ACCENT2)],
+            foreground=[('active', WHITE)])
+        self.style.configure('TLabel', background=BG, foreground=TEXT)
+        self.style.configure('TEntry',
+            fieldbackground=SURFACE2, foreground=TEXT, bordercolor=BORDER,
+            insertcolor=WHITE, borderwidth=1)
+        self.style.configure('TCombobox',
+            fieldbackground=SURFACE2, foreground=TEXT, bordercolor=BORDER,
+            selectbackground=ACCENT, borderwidth=1)
+        self.style.map('TCombobox',
+            fieldbackground=[('readonly', SURFACE2)],
+            foreground=[('readonly', TEXT)])
 
         # Resolve fonts after Tk is initialized
         FONT_FAMILY = _pick(["Segoe UI", "Helvetica"], "Helvetica")
@@ -224,7 +284,10 @@ class FileOrganizerApp:
         self.root.title(self._t("title"))
         self.root.geometry("1100x700")
         self.root.minsize(900, 580)
-        self.root.configure(bg='#2b2b2b')
+        self.root.configure(bg=BG)
+
+        # Subtle transparency — gives depth even without full Acrylic
+        self.root.attributes("-alpha", 0.97)
 
         # Try to set window icon
         try:
@@ -232,11 +295,17 @@ class FileOrganizerApp:
             if icon_path.exists():
                 self.root.iconbitmap(str(icon_path))
             else:
-                # Fallback to PNG if ICO not found
                 png_path = resource_path("assets", "icon.png")
                 if png_path.exists():
                     img = tk.PhotoImage(file=str(png_path))
                     self.root.iconphoto(True, img)
+        except Exception:
+            pass
+
+        # Apply Windows Acrylic blur-behind (Win10 1703+, silently skipped elsewhere)
+        try:
+            hwnd = self.root.winfo_id()
+            _apply_acrylic(hwnd)
         except Exception:
             pass
 
@@ -294,7 +363,7 @@ class FileOrganizerApp:
         organizer = FileOrganizer(self.config)
         for folder in self.config.watched_folders:
             try:
-                for file_path in Path(folder).rglob('*'):
+                for file_path in Path(folder).iterdir():
                     if file_path.is_file():
                         result = organizer.organize_file(str(file_path))
                         self._on_file_organized(result)
@@ -322,12 +391,12 @@ class FileOrganizerApp:
         # Logo area
         logo_frame = tk.Frame(self.sidebar, bg=SURFACE, pady=20)
         logo_frame.pack(fill="x")
-        tk.Label(logo_frame, text="⚡", bg=SURFACE, fg=ACCENT,
-                 font=(FONT_FAMILY, 22)).pack()
-        tk.Label(logo_frame, text="FileOrganizer", bg=SURFACE, fg=WHITE,
-                 font=(FONT_FAMILY, 13, "bold")).pack()
-        tk.Label(logo_frame, text="v1.0", bg=SURFACE, fg=TEXT_DIM,
-                 font=(FONT_FAMILY, 9)).pack()
+        tk.Label(logo_frame, text="✦", bg=SURFACE, fg=ACCENT,
+                 font=(FONT_FAMILY, 26)).pack()
+        tk.Label(logo_frame, text="SmartOrganizer", bg=SURFACE, fg=WHITE,
+                 font=(FONT_FAMILY, 12, "bold")).pack()
+        tk.Label(logo_frame, text="v2.0  •  Acrylic", bg=SURFACE, fg=TEXT_DIM,
+                 font=(FONT_FAMILY, 8)).pack()
 
         Separator(self.sidebar).pack(fill="x", padx=16, pady=4)
 

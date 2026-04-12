@@ -52,14 +52,8 @@ def reduce_watcher_delay(monkeypatch):
     # Reduce settle delay to make tests deterministic and fast
     try:
         watcher_mod._OrganizerEventHandler.SETTLE_DELAY = 0
-    except Exception:
+    except AttributeError:
         pass
-
-    # Ensure FileCreatedEvent / FileMovedEvent exist even if watchdog not installed
-    if not hasattr(watcher_mod, "FileCreatedEvent"):
-        watcher_mod.FileCreatedEvent = type("FileCreatedEvent", (object,), {})
-    if not hasattr(watcher_mod, "FileMovedEvent"):
-        watcher_mod.FileMovedEvent = type("FileMovedEvent", (object,), {})
 
     yield
 

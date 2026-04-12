@@ -3,6 +3,7 @@ Core file organization logic.
 """
 
 import logging
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +13,53 @@ from .config import Config
 
 
 logger = logging.getLogger("FileOrganizer")
+
+# Folders that must never be touched — system/program directories that would
+# be destroyed if their files were moved and wrapper-folders created inside.
+BLACKLISTED_FOLDERS = {
+    "windows",
+    "program files",
+    "program files (x86)",
+    "system32",
+    "syswow64",
+    "appdata",
+    "local",
+    "roaming",
+    "localappdata",
+    "programdata",
+    "system volume information",
+    "$recycle.bin",
+    "recovery",
+    "boot",
+    "efi",
+}
+
+
+def _is_path_blacklisted(path: Path) -> bool:
+    """
+    Return True if *path* or any of its ancestors is a blacklisted
+    system folder, or if any component starts with a dot (hidden dir),
+    or carries the Windows FILE_ATTRIBUTE_SYSTEM flag.
+    """
+    # Check every component of the path
+    for part in path.parts:
+        part_lower = part.lower().rstrip("\\/")
+        if part_lower in BLACKLISTED_FOLDERS:
+            return True
+        # Hidden dirs (dot-prefixed) on any platform
+        if part_lower.startswith(".") and part_lower not in (".", ".."):
+            return True
+
+    # Windows-specific: FILE_ATTRIBUTE_SYSTEM (0x4) on the file's parent dir
+    if os.name == "nt":
+        try:
+            attrs = os.stat(path).st_file_attributes  # type: ignore[attr-defined]
+            if attrs & 0x4:  # FILE_ATTRIBUTE_SYSTEM
+                return True
+        except (OSError, AttributeError):
+            pass
+
+    return False
 
 
 class OrganizerResult:
@@ -123,6 +171,14 @@ class FileOrganizer:
         if src.name.startswith(".") or src.name.endswith(".tmp") or src.name.endswith("~"):
             return OrganizerResult(False, filepath, "", "skipped", "Temporary/hidden file ignored")
 
+        # Safety: never touch files inside blacklisted system directories
+        if _is_path_blacklisted(src.parent):
+            logger.warning(f"[BLOCKED] '{src}' is inside a protected system folder — skipped.")
+            return OrganizerResult(
+                False, filepath, "", "skipped",
+                f"Source is inside a protected system folder: {src.parent}"
+            )
+
         category, dest_file = self.resolve_destination(filepath)
         if dest_file is None:
             return OrganizerResult(
@@ -138,6 +194,14 @@ class FileOrganizer:
 
         if dest_path.resolve() == src.resolve():
             return OrganizerResult(False, filepath, str(dest_path), "skipped", "File already in correct location")
+
+        # Safety: never write into blacklisted system directories
+        if _is_path_blacklisted(dest_dir):
+            logger.warning(f"[BLOCKED] Destination '{dest_dir}' is a protected system folder — skipped.")
+            return OrganizerResult(
+                False, filepath, str(dest_path), "skipped",
+                f"Destination is inside a protected system folder: {dest_dir}"
+            )
 
         action = "moved"
         if dest_path.exists():
@@ -184,6 +248,11 @@ class FileOrganizer:
         folder_path = Path(folder)
         if not folder_path.is_dir():
             logger.error(f"Folder not found: {folder}")
+            return results
+
+        # Refuse to touch blacklisted root folders entirely
+        if _is_path_blacklisted(folder_path):
+            logger.warning(f"[BLOCKED] Folder '{folder_path}' is a protected system folder — skipped entirely.")
             return results
 
         for item in folder_path.iterdir():
